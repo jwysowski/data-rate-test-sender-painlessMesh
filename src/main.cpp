@@ -14,10 +14,10 @@ painlessMesh mesh;
 uint16_t message_counter = 0;
 uint32_t prev_millis = 0;
 uint32_t interval_ms = 1000;
+String chip_id = String(ESP.getChipId());
 String message_offset;
-void setup() {
-	Serial.begin(BAUDRATE);
 
+void setup() {
 	//mesh
 	// mesh.setDebugMsgTypes(ERROR | MESH_STATUS | CONNECTION | SYNC | COMMUNICATION | GENERAL | MSG_TYPES | REMOTE);   // all types on
 
@@ -37,8 +37,9 @@ void loop() {
         prev_millis = curr_millis;
         
         sprintf(count, "%03x", message_counter);
-		mesh.sendBroadcast(String(ESP.getChipId()) + String('\t') + String(count) + message_offset);
+		mesh.sendBroadcast(chip_id + String('\t') + String(count) + message_offset);
         message_counter++;
+		message_counter = message_counter > 1000 ? 0 : message_counter;		
 	}
 }
 
