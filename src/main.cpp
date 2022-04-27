@@ -28,11 +28,6 @@ void setup() {
     //message_offset
     for (int i = 0; i < OFFSET_SIZE; i++)
         message_offset += String(':');
-
-	//dht
-	timer1_attachInterrupt(timer_overflow);
-	timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);         //5MHz
-	timer1_write(OVERFLOW_LIMIT);
 }
 
 void loop() {
@@ -42,7 +37,7 @@ void loop() {
         prev_millis = curr_millis;
         
         sprintf(count, "%03x", message_counter);
-		mesh.sendBroadcast(String(ESP.getChipId()) + String('\t') + String(count) + message_offset);
+		mesh.sendBroadcast(String(ESP.getChipId()) + String('\t') + String(message_counter) + message_offset);
         message_counter++;
 	}
 }
