@@ -37,7 +37,7 @@ void loop() {
         prev_millis = curr_millis;
         
         sprintf(count, "%03x", message_counter);
-		mesh.sendBroadcast(String(ESP.getChipId()) + String('\t') + String(message_counter) + message_offset);
+		mesh.sendBroadcast(String(ESP.getChipId()) + String('\t') + String(count) + message_offset);
         message_counter++;
 	}
 }
