@@ -16,6 +16,7 @@ uint32_t prev_millis = 0;
 uint32_t interval_ms = 1000;
 String chip_id = String(ESP.getChipId());
 String message_offset;
+bool stop_test = false;
 
 void setup() {
 	//mesh
@@ -33,14 +34,19 @@ void setup() {
 void loop() {
 	mesh.update();
     uint32_t curr_millis = millis();
-	if (curr_millis - prev_millis > interval_ms) {
+	if (!stop_test && curr_millis - prev_millis > interval_ms) {
         prev_millis = curr_millis;
         
         sprintf(count, "%03x", message_counter);
 		mesh.sendBroadcast(chip_id + String('\t') + String(count) + message_offset);
         message_counter++;
-		message_counter = message_counter > 1000 ? 0 : message_counter;		
+
+		if (message_counter == 1500)
+			stop_test = true;		
 	}
+
+	if (stop_test)
+		mesh.sendBroadcast("stop");
 }
 
 void received_callback(const uint32_t &from, const String &msg) {
