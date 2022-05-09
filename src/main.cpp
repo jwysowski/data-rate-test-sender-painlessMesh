@@ -1,53 +1,92 @@
-#include <Arduino.h>
+//************************************************************
+// this is a simple example that uses the easyMesh library
+//
+// 1. blinks led once for every node on the mesh
+// 2. blink cycle repeats every BLINK_PERIOD
+// 3. sends a silly message to every node on the mesh at a random time between 1 and 5 seconds
+// 4. prints anything it receives to Serial.print
+//
+//
+//************************************************************
 #include <painlessMesh.h>
-#include <string.h>
 
-#include "data.hpp"
+// some gpio pin that is connected to an LED...
+// on my rig, this is 5, change to the right number of your LED.
 
-#define MESSAGE_COUNTER_SIZE    3
-#define OFFSET_SIZE             10
+#define   BLINK_PERIOD    3000 // milliseconds until cycle repeat
+#define   BLINK_DURATION  100  // milliseconds LED is on for
 
-void received_callback(const uint32_t &from, const String &msg);
+#define   MESH_SSID       "esp_mesh"
+#define   MESH_PASSWORD   "123456789"
+#define   MESH_PORT       5555
 
-char count[MESSAGE_COUNTER_SIZE + 1];
-painlessMesh mesh;
-uint16_t message_counter = 0;
-uint32_t prev_millis = 0;
-uint32_t interval_ms = 1000;
-String chip_id = String(ESP.getChipId());
-String message_offset;
-bool stop_test = false;
+// Prototypes
+void sendMessage(); 
+void receivedCallback(uint32_t from, String & msg);
+void newConnectionCallback(uint32_t nodeId);
+void changedConnectionCallback(); 
+void nodeTimeAdjustedCallback(int32_t offset); 
+void delayReceivedCallback(uint32_t from, int32_t delay);
+
+Scheduler     userScheduler; // to control your personal task
+painlessMesh  mesh;
+
+void sendMessage() ; // Prototype
+Task taskSendMessage( TASK_MILLISECOND * 100, TASK_FOREVER, &sendMessage ); // start with a one second interval
+
+// Task to blink the number of nodes
 
 void setup() {
-	//mesh
-	// mesh.setDebugMsgTypes(ERROR | MESH_STATUS | CONNECTION | SYNC | COMMUNICATION | GENERAL | MSG_TYPES | REMOTE);   // all types on
+  Serial.begin(9600);
 
-	mesh.init(ssid, password, PORT);
-	mesh.setContainsRoot(true);
-	mesh.onReceive(&received_callback);
+  mesh.setDebugMsgTypes(ERROR | DEBUG);  // set before init() so that you can see error messages
 
-    //message_offset
-    for (int i = 0; i < OFFSET_SIZE; i++)
-        message_offset += String(':');
+  mesh.init(MESH_SSID, MESH_PASSWORD, &userScheduler, MESH_PORT);
+  mesh.onReceive(&receivedCallback);
+  mesh.onNewConnection(&newConnectionCallback);
+  mesh.onChangedConnections(&changedConnectionCallback);
+  mesh.onNodeTimeAdjusted(&nodeTimeAdjustedCallback);
+  mesh.onNodeDelayReceived(&delayReceivedCallback);
+
+  userScheduler.addTask( taskSendMessage );
+  taskSendMessage.enable();
+
+  randomSeed(analogRead(A0));
 }
 
 void loop() {
-	mesh.update();
-    uint32_t curr_millis = millis();
-	if (!stop_test && curr_millis - prev_millis > interval_ms) {
-        prev_millis = curr_millis;
-        
-        sprintf(count, "%03x", message_counter);
-		mesh.sendBroadcast(chip_id + String('\t') + String(count) + message_offset);
-        message_counter++;
-
-		if (message_counter == 1500)
-			stop_test = true;		
-	}
-
-	if (stop_test)
-		mesh.sendBroadcast("stop");
+  mesh.update();
 }
 
-void received_callback(const uint32_t &from, const String &msg) {
+void sendMessage() {
+//   String msg = "Hello from node ";
+//   msg += mesh.getNodeId();
+//   msg += " myFreeMemory: " + String(ESP.getFreeHeap());
+  String msg = String(ESP.getFreeHeap());
+  mesh.sendBroadcast(msg);
+
+  Serial.printf("Sending message: %s\n", msg.c_str());
+}
+
+void receivedCallback(uint32_t from, String & msg) {
+  Serial.printf("startHere: Received from %u msg=%s\n", from, msg.c_str());
+}
+
+void newConnectionCallback(uint32_t nodeId) {
+  // Reset blink task
+  Serial.printf("--> startHere: New Connection, nodeId = %u\n", nodeId);
+  Serial.printf("--> startHere: New Connection, %s\n", mesh.subConnectionJson(true).c_str());
+}
+
+void changedConnectionCallback() {
+  Serial.printf("Changed connections\n");
+  // Reset blink task
+}
+
+void nodeTimeAdjustedCallback(int32_t offset) {
+  Serial.printf("Adjusted time %u. Offset = %d\n", mesh.getNodeTime(), offset);
+}
+
+void delayReceivedCallback(uint32_t from, int32_t delay) {
+  Serial.printf("Delay to node %u is %d us\n", from, delay);
 }
